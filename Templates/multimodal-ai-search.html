@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI-Powered Search</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+    .container {
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 20px;
+      padding: 40px;
+      max-width: 800px;
+      width: 100%;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      animation: slideUp 0.5s ease-out;
+    }
+    @keyframes slideUp {
+      from { opacity:0; transform:translateY(30px); }
+      to { opacity:1; transform:translateY(0); }
+    }
+    h1 {
+      text-align: center;
+      color: #333;
+      margin-bottom: 10px;
+      font-size: 2.5em;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .subtitle {
+      text-align:center;
+      color:#666;
+      margin-bottom:30px;
+      font-size:1.1em;
+    }
+    .search-mode {
+      display:flex;
+      gap:10px;
+      margin-bottom:30px;
+      justify-content:center;
+    }
+    .mode-btn {
+      padding:12px 24px;
+      border:2px solid #667eea;
+      background:white;
+      color:#667eea;
+      border-radius:50px;
+      cursor:pointer;
+      font-size:16px;
+      font-weight:600;
+      transition:all 0.3s ease;
+    }
+    .mode-btn.active {
+      background:linear-gradient(135deg, #667eea, #764ba2);
+      color:white;
+    }
+    .search-container { margin-bottom:30px; }
+    .text-search {
+      display: flex;
+      justify-content: center;   /* centers horizontally */
+      align-items: center;       /* centers vertically */
+      gap: 10px;
+      max-width: 600px;
+      margin: 0 auto;            /* center block */
+    }
+    .search-input {
+      flex:1;
+      min-width: 300px;
+      max-width: 450px;
+      padding:15px 20px;
+      border:2px solid #e0e0e0;
+      border-radius:50px;
+      font-size:16px;
+    }
+    .search-btn {
+      padding:15px 30px;
+      background:linear-gradient(135deg,#667eea,#764ba2);
+      color:white;
+      border:none;
+      border-radius:50px;
+      cursor:pointer;
+      font-weight:600;
+    }
+    .image-search { display:none; text-align:center; }
+    .upload-area {
+      border:3px dashed #667eea;
+      border-radius:20px;
+      padding:40px;
+      text-align:center;
+      cursor:pointer;
+    }
+    .preview-container { margin-top:20px; display:none; }
+    .results { display:none; }
+    .result-item {
+      background:white;
+      border-radius:15px;
+      padding:20px;
+      margin-bottom:15px;
+      box-shadow:0 5px 15px rgba(0,0,0,0.1);
+    }
+    .result-title { font-size:1.2em; font-weight:600; }
+    .result-description { color:#666; margin:10px 0; }
+    .result-meta { font-size:0.9em; color:#999; display:flex; gap:15px; flex-wrap:wrap; }
+    .relevance-score {
+      background:linear-gradient(135deg,#667eea,#764ba2);
+      color:white;
+      padding:3px 10px;
+      border-radius:12px;
+      font-size:0.85em;
+    }
+    .loading { display:none; text-align:center; padding:20px; }
+    .spinner {
+      width:40px;
+      height:40px;
+      border:4px solid #f3f3f3;
+      border-top:4px solid #667eea;
+      border-radius:50%;
+      animation:spin 1s linear infinite;
+      margin:auto;
+    }
+    @keyframes spin { 0%{transform:rotate(0);} 100%{transform:rotate(360deg);} }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔍 AI-Powered Search</h1>
+    <p class="subtitle">Search with text or images using AI</p>
+
+    <div class="search-mode">
+      <button class="mode-btn active" onclick="switchMode('text', this)">📝 Text Search</button>
+      <button class="mode-btn" onclick="switchMode('image', this)">🖼️ Image Search</button>
+    </div>
+
+    <div class="search-container">
+      <div class="text-search" id="textSearch">
+        <input type="text" id="searchInput" class="search-input" placeholder="Enter your query..." onkeypress="handleKeyPress(event)" />
+        <button class="search-btn" onclick="performTextSearch()">Search →</button>
+      </div>
+
+      <div class="image-search" id="imageSearch">
+        <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+          <p>📷 Click to upload (JPG, PNG, GIF)</p>
+          <input type="file" id="fileInput" style="display:none;" accept="image/*" onchange="handleFileSelect(event)" />
+        </div>
+        <div class="preview-container" id="previewContainer">
+          <img id="previewImg" style="max-width:100%; max-height:250px;" />
+          <button class="search-btn" style="margin-top:20px; width:100%;" onclick="performImageSearch()">Search Similar Images →</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      <p>Searching with AI...</p>
+    </div>
+
+    <div class="results" id="results">
+      <h2>Search Results</h2>
+      <div id="resultsList"></div>
+    </div>
+  </div>
+
+  <script>
+    let currentMode = 'text';
+    let uploadedImage = null;
+
+    function switchMode(mode, element) {
+      currentMode = mode;
+      document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
+      element.classList.add('active');
+      document.getElementById('textSearch').style.display = (mode === 'text') ? 'flex' : 'none';
+      document.getElementById('imageSearch').style.display = (mode === 'image') ? 'block' : 'none';
+      document.getElementById('results').style.display = 'none';
+    }
+
+    function handleKeyPress(event) {
+      if (event.key === 'Enter') performTextSearch();
+    }
+
+    function handleFileSelect(event) {
+      const file = event.target.files[0];
+      if (file && file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = e => {
+          uploadedImage = e.target.result;
+          document.getElementById('previewImg').src = uploadedImage;
+          document.getElementById('previewContainer').style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    async function performTextSearch() {
+      const query = document.getElementById('searchInput').value;
+      if (!query.trim()) { alert("Enter a search query"); return; }
+      showLoading();
+      const res = await fetch(`/search?q=${encodeURIComponent(query)}`);
+      const results = await res.json();
+      displayResults(results, query);
+    }
+
+    async function performImageSearch() {
+      if (!uploadedImage) { alert("Upload an image first"); return; }
+      showLoading();
+      const res = await fetch("/image-search", { method:"POST" });
+      const results = await res.json();
+      displayResults(results, "image");
+    }
+
+    function displayResults(results, query="") {
+      const container = document.getElementById("resultsList");
+      container.innerHTML = "";
+      results.forEach(r => {
+        const div = document.createElement("div");
+        div.className = "result-item";
+        let desc = r.description || "";
+        if (query) {
+          const regex = new RegExp(`(${query})`, "gi");
+          desc = desc.replace(regex, "<mark>$1</mark>");
+        }
+        div.innerHTML = `
+          <div class="result-title">${r.title || "Untitled"}</div>
+          <div class="result-description">${desc}</div>
+          <div class="result-meta">
+            <span>📁 ${r.type || "N/A"}</span>
+            <span>🌐 <a href="${r.source}" target="_blank">${r.source}</a></span>
+            <span class="relevance-score">${r.relevance || 80}% Match</span>
+          </div>`;
+        container.appendChild(div);
+      });
+      document.getElementById("loading").style.display = "none";
+      document.getElementById("results").style.display = "block";
+    }
+
+    function showLoading() {
+      document.getElementById("loading").style.display = "block";
+      document.getElementById("results").style.display = "none";
+    }
+  </script>
+</body>
+</html>
